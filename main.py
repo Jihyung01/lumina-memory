@@ -67,13 +67,17 @@ def handle_memory():
         mode = data.get('mode', 'auto')
         print("📥 받은 요청:", data)
 
-        # memory_content 추출 시 예외 처리
+        # memory_content 추출 유연하게 처리
         memory_content = ''
         try:
+            # Notion 스타일 구조 우선
             title_data = data.get('properties', {}).get('기억', {}).get('title', [])
             if isinstance(title_data, list) and title_data:
                 text_obj = title_data[0].get('text', {})
                 memory_content = text_obj.get('content', '')
+            # 일반 content 필드도 허용
+            if not memory_content and 'content' in data:
+                memory_content = data['content']
         except Exception as e:
             print("🚨 memory_content 파싱 중 오류:", str(e))
             memory_content = ''
