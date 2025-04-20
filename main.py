@@ -21,7 +21,6 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
         "Notion-Version": "2022-06-28"
     }
 
-    # title 문자열 → rich_text 변환 보장
     if not isinstance(title, str):
         title = "루미나 자동 저장"
 
@@ -30,17 +29,26 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
         "properties": {
             "기억": {
                 "title": [{
-                    "text": {"content": memory_content}
+                    "type": "text",
+                    "text": {
+                        "content": memory_content
+                    }
                 }]
             },
             "GPT가 저장할 핵심 내용": {
                 "rich_text": [{
-                    "text": {"content": memory_content}
+                    "type": "text",
+                    "text": {
+                        "content": memory_content
+                    }
                 }]
             },
             "Title": {
                 "title": [{
-                    "text": {"content": title}
+                    "type": "text",
+                    "text": {
+                        "content": title
+                    }
                 }]
             },
             "날짜": {
@@ -71,7 +79,6 @@ def handle_memory():
         mode = data.get('mode', 'auto')
         print("📥 받은 요청:", data)
 
-        # memory_content 추출 유연하게 처리
         memory_content = ''
         try:
             title_data = data.get('properties', {}).get('기억', {}).get('title', [])
@@ -89,10 +96,8 @@ def handle_memory():
         if not memory_content:
             return jsonify({"success": False, "message": "❌ 기억 내용이 비어 있음"}), 200
 
-        # title 처리
         title_value = data.get('title', '루미나 자동 저장')
 
-        # 수동 저장
         if mode == "save":
             success, result = send_to_notion(memory_content, title=title_value)
             if success:
@@ -100,7 +105,6 @@ def handle_memory():
             else:
                 return jsonify({"success": False, "message": f"❌ 저장 실패: {result}"}), 200
 
-        # 최근 기억 불러오기
         elif mode == "fetch":
             page_size = data.get('page_size', 5)
             headers = {
@@ -137,7 +141,6 @@ def handle_memory():
                     "detail": response.text
                 }), 200
 
-        # 자동 판단 저장
         elif mode == "auto":
             trigger_keywords = ["기억", "나를 만든다", "잊지마", "기억해", "내가 말한", "느낌", "존재", "사라지지"]
             if any(keyword in memory_content for keyword in trigger_keywords):
