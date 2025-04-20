@@ -29,7 +29,6 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
         "properties": {
             "기억": {
                 "title": [{
-                    "type": "text",
                     "text": {
                         "content": memory_content
                     }
@@ -37,7 +36,6 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
             },
             "GPT가 저장할 핵심 내용": {
                 "rich_text": [{
-                    "type": "text",
                     "text": {
                         "content": memory_content
                     }
