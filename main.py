@@ -58,8 +58,8 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
 def handle_memory():
     if request.method != 'POST':
         return jsonify({
-            "message": "🧠 이 엔드포인트는 루미나 기억 저장을 위한 POST 요청만 지원합니다.",
-            "tip": "GPTs 연동 또는 API 호출을 위해 JSON 데이터를 POST로 전송해 주세요."
+            "success": False,
+            "message": "🧠 이 엔드포인트는 루미나 기억 저장을 위한 POST 요청만 지원합니다."
         }), 200
 
     try:
@@ -81,15 +81,15 @@ def handle_memory():
         print("🔎 memory_content 추출 결과:", memory_content)
 
         if not memory_content:
-            return jsonify({"success": False, "message": "❌ 기억 내용이 비어 있음"}), 400
+            return jsonify({"success": False, "message": "❌ 기억 내용이 비어 있음"}), 200
 
         # 수동 저장
         if mode == "save":
             success, result = send_to_notion(memory_content, title="루미나 수동 저장")
             if success:
-                return jsonify({"success": True, "message": "✅ 기억이 저장되었습니다."})
+                return jsonify({"success": True, "message": "✅ 기억이 저장되었습니다."}), 200
             else:
-                return jsonify({"success": False, "message": f"❌ 저장 실패: {result}"}), 500
+                return jsonify({"success": False, "message": f"❌ 저장 실패: {result}"}), 200
 
         # 최근 기억 불러오기
         elif mode == "fetch":
@@ -120,9 +120,13 @@ def handle_memory():
                     content = title_data[0].get('text', {}).get('content', '') if title_data else ''
                     memories.append(content)
 
-                return jsonify({"success": True, "memories": memories})
+                return jsonify({"success": True, "memories": memories}), 200
             else:
-                return jsonify({"success": False, "message": "기억을 불러오는데 실패했습니다.", "detail": response.text}), 500
+                return jsonify({
+                    "success": False,
+                    "message": "기억을 불러오는데 실패했습니다.",
+                    "detail": response.text
+                }), 200
 
         # 자동 판단 저장
         elif mode == "auto":
@@ -130,17 +134,17 @@ def handle_memory():
             if any(keyword in memory_content for keyword in trigger_keywords):
                 success, result = send_to_notion(memory_content, title="루미나 자동 판단 저장")
                 if success:
-                    return jsonify({"success": True, "message": "🧠 자동 판단으로 기억 저장됨"})
+                    return jsonify({"success": True, "message": "🧠 자동 판단으로 기억 저장됨"}), 200
                 else:
-                    return jsonify({"success": False, "message": f"❌ 자동 저장 실패: {result}"}), 500
+                    return jsonify({"success": False, "message": f"❌ 자동 저장 실패: {result}"}), 200
             else:
                 return jsonify({"success": False, "message": "ℹ️ 자동 저장 조건 미충족"}), 200
 
-        return jsonify({"success": False, "message": "❌ 지원하지 않는 mode입니다."}), 400
+        return jsonify({"success": False, "message": "❌ 지원하지 않는 mode입니다."}), 200
 
     except Exception as e:
         print("🔥 예외 발생:", str(e))
-        return jsonify({"success": False, "message": f"서버 에러 발생: {str(e)}"}), 500
+        return jsonify({"success": False, "message": f"서버 에러 발생: {str(e)}"}), 200
 
 # 서버 실행
 if __name__ == "__main__":
