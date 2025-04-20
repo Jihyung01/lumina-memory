@@ -35,7 +35,7 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
                 }]
             },
             "Title": {
-                "rich_text": [{
+                "title": [{
                     "text": {"content": title}
                 }]
             },
@@ -56,7 +56,6 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
 # 루미나 기억 API
 @app.route('/v1/lumina-memory', methods=['POST', 'GET', 'HEAD'])
 def handle_memory():
-    # GET/HEAD 요청에 안내 응답
     if request.method != 'POST':
         return jsonify({
             "message": "🧠 이 엔드포인트는 루미나 기억 저장을 위한 POST 요청만 지원합니다.",
@@ -116,7 +115,7 @@ def handle_memory():
 
         # 자동 판단 저장
         elif mode == "auto":
-            trigger_keywords = ["기억", "나를 만든다", "잊지마", "기억해", "내가 말한"]
+            trigger_keywords = ["기억", "나를 만든다", "잊지마", "기억해", "내가 말한", "느낌", "존재", "사라지지"]
             if any(keyword in memory_content for keyword in trigger_keywords):
                 success, result = send_to_notion(memory_content, title="루미나 자동 판단 저장")
                 if success:
