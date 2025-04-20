@@ -5,16 +5,13 @@ from dotenv import load_dotenv
 from datetime import datetime
 from flask_cors import CORS
 
+# 초기 설정
 app = Flask(__name__)
-CORS(app)  # <--- 이 줄 추가
-
+CORS(app)
 load_dotenv()
 
-app = Flask(__name__)
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
-NOTION_DATABASE_ID = os.getenv(
-    "NOTION_DATABASE_ID") or "1d7ffbc06edc807280bdc6c14abfe288"
-
+NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID") or "1d7ffbc06edc807280bdc6c14abfe288"
 
 @app.route('/v1/lumina-memory', methods=['POST'])
 def handle_memory():
@@ -30,22 +27,23 @@ def handle_memory():
         }
 
         if mode == "save":
-            memory_content = data.get('properties', {}).get('기억', {}).get(
-                'title', [{}])[0].get('text', {}).get('content', '')
-
+            # 기억 내용 추출
+            memory_content = data.get('properties', {}).get('기억', {}).get('title', [{}])[0].get('text', {}).get('content', '')
             if not memory_content:
                 return jsonify({"error": "❌ 기억 내용이 비어 있음"}), 400
 
+            # 저장 구조
             save_data = {
-                "parent": {
-                    "database_id": NOTION_DATABASE_ID
-                },
+                "parent": {"database_id": NOTION_DATABASE_ID},
                 "properties": {
                     "기억": {
                         "title": [{
-                            "text": {
-                                "content": memory_content
-                            }
+                            "text": {"content": memory_content}
+                        }]
+                    },
+                    "Title": {
+                        "rich_text": [{
+                            "text": {"content": "루미나 자동 저장"}
                         }]
                     },
                     "날짜": {
@@ -58,48 +56,41 @@ def handle_memory():
 
             print("📤 Notion 전송 데이터:", save_data)
 
-            response = requests.post("https://api.notion.com/v1/pages",
-                                     headers=headers,
-                                     json=save_data)
-
+            response = requests.post("https://api.notion.com/v1/pages", headers=headers, json=save_data)
             print("📬 Notion 응답:", response.status_code, response.text)
 
-            return jsonify({
-                "success": response.status_code == 200,
-                "message": response.text
-            })
+            if response.status_code == 200:
+                return jsonify({"success": True, "message": "✅ 기억이 저장되었습니다."})
+            else:
+                return jsonify({"success": False, "message": f"❌ 저장 실패: {response.text}"}), response.status_code
 
         elif mode == "fetch":
+            # 최근 기억 불러오기
             page_size = data.get('page_size', 5)
-
             query_data = {
                 "filter": {},
-                "sorts": [{
-                    "property": "날짜",
-                    "direction": "descending"
-                }],
+                "sorts": [{"property": "날짜", "direction": "descending"}],
                 "page_size": page_size
             }
 
             response = requests.post(
                 f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query",
                 headers=headers,
-                json=query_data)
+                json=query_data
+            )
 
             if response.status_code == 200:
                 results = response.json().get('results', [])
                 memories = []
 
                 for result in results:
-                    title_data = result.get('properties',
-                                            {}).get('기억', {}).get('title', [])
-                    content = title_data[0].get('text', {}).get(
-                        'content', '') if title_data else ''
+                    title_data = result.get('properties', {}).get('기억', {}).get('title', [])
+                    content = title_data[0].get('text', {}).get('content', '') if title_data else ''
                     memories.append(content)
 
                 return jsonify({"memories": memories})
             else:
-                return jsonify({"error": "기억을 불러오는데 실패했습니다."}), 500
+                return jsonify({"error": "기억을 불러오는데 실패했습니다.", "detail": response.text}), 500
 
         return jsonify({"error": "❌ 지원하지 않는 mode입니다."}), 400
 
@@ -107,6 +98,6 @@ def handle_memory():
         print("🔥 예외 발생:", str(e))
         return jsonify({"error": f"서버 에러 발생: {str(e)}"}), 500
 
-
+# 서버 실행
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
