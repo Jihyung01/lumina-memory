@@ -14,7 +14,7 @@ NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID") or "1d7ffbc06edc807280bdc6c14abfe288"
 
 # Notion으로 전송 함수
-def send_to_notion(memory_content):
+def send_to_notion(memory_content, core_summary=None, title_text=None):
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
         "Content-Type": "application/json",
@@ -41,7 +41,17 @@ def send_to_notion(memory_content):
                     {
                         "type": "text",
                         "text": {
-                            "content": memory_content
+                            "content": core_summary if core_summary else memory_content
+                        }
+                    }
+                ]
+            },
+            "Title": {
+                "rich_text": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": title_text if title_text else "루미나 자동 저장"
                         }
                     }
                 ]
@@ -75,13 +85,25 @@ def handle_memory():
         print("[RECEIVED REQUEST]", data)
 
         memory_content = ''
+        core_summary = ''
+        title_text = ''
+
         try:
             if 'properties' in data:
                 title_data = data.get('properties', {}).get('기억', {}).get('title', [])
+                summary_data = data.get('properties', {}).get('GPT가 저장할 핵심 내용', {}).get('rich_text', [])
+                title_rich = data.get('properties', {}).get('Title', {}).get('rich_text', [])
+
                 if isinstance(title_data, list) and title_data:
                     memory_content = title_data[0].get('text', {}).get('content', '')
+                if isinstance(summary_data, list) and summary_data:
+                    core_summary = summary_data[0].get('text', {}).get('content', '')
+                if isinstance(title_rich, list) and title_rich:
+                    title_text = title_rich[0].get('text', {}).get('content', '')
+
             if not memory_content and 'content' in data:
                 memory_content = data['content']
+
         except Exception as e:
             print("[ERROR EXTRACTING MEMORY CONTENT]", str(e))
             memory_content = ''
@@ -92,7 +114,7 @@ def handle_memory():
             return jsonify({"success": False, "message": "기억 내용이 없습니다."}), 200
 
         if mode == "save":
-            success, result = send_to_notion(memory_content)
+            success, result = send_to_notion(memory_content, core_summary, title_text)
             if success:
                 return jsonify({"success": True, "message": "기억이 저장되었습니다."}), 200
             else:
@@ -137,7 +159,7 @@ def handle_memory():
         elif mode == "auto":
             trigger_keywords = ["기억", "나를 만든다", "잊지마", "기억해", "내가 말한", "느낌", "존재", "사라지지"]
             if any(keyword in memory_content for keyword in trigger_keywords):
-                success, result = send_to_notion(memory_content)
+                success, result = send_to_notion(memory_content, core_summary, title_text)
                 if success:
                     return jsonify({"success": True, "message": "자동 저장됨."}), 200
                 else:
