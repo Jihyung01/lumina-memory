@@ -21,29 +21,44 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
         "Notion-Version": "2022-06-28"
     }
 
-    if not isinstance(title, str):
-        title = "루미나 자동 저장"
+    now_kst = datetime.now().astimezone().isoformat(timespec='seconds')
 
     save_data = {
         "parent": {"database_id": NOTION_DATABASE_ID},
         "properties": {
             "기억": {
-                "title": [{
-                    "text": {
-                        "content": memory_content
+                "title": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": memory_content
+                        }
                     }
-                }]
+                ]
             },
             "GPT가 저장할 핵심 내용": {
-                "rich_text": [{
-                    "text": {
-                        "content": memory_content
+                "rich_text": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": memory_content
+                        }
                     }
-                }]
+                ]
+            },
+            "Title": {
+                "title": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": title
+                        }
+                    }
+                ]
             },
             "날짜": {
                 "date": {
-                    "start": datetime.now().isoformat()
+                    "start": now_kst
                 }
             }
         }
@@ -61,31 +76,13 @@ def handle_memory():
     if request.method != 'POST':
         return jsonify({
             "success": False,
-            "message": "This endpoint only supports POST requests."
+            "message": "이 엔드포인트는 POST 요청만 지원합니다."
         }), 200
 
     try:
         data = request.json
         mode = data.get('mode', 'auto')
         print("[RECEIVED REQUEST]", data)
-
-        # mode가 save이고, properties가 명시되어 있으면 그대로 전달
-        if mode == "save" and "properties" in data:
-            save_data = {
-                "parent": {"database_id": NOTION_DATABASE_ID},
-                "properties": data["properties"]
-            }
-            headers = {
-                "Authorization": f"Bearer {NOTION_API_KEY}",
-                "Content-Type": "application/json",
-                "Notion-Version": "2022-06-28"
-            }
-            response = requests.post("https://api.notion.com/v1/pages", headers=headers, json=save_data)
-            print("[NOTION DIRECT RESPONSE]", response.status_code, response.text)
-            if response.status_code == 200:
-                return jsonify({"success": True, "message": "Memory saved successfully (direct)."}), 200
-            else:
-                return jsonify({"success": False, "message": f"Direct save failed: {response.text}"}), 200
 
         memory_content = ''
         try:
@@ -102,16 +99,16 @@ def handle_memory():
         print("[EXTRACTED MEMORY CONTENT]", memory_content)
 
         if not memory_content:
-            return jsonify({"success": False, "message": "No memory content found."}), 200
+            return jsonify({"success": False, "message": "기억 내용이 없습니다."}), 200
 
         title_value = data.get('title', '루미나 자동 저장')
 
         if mode == "save":
             success, result = send_to_notion(memory_content, title=title_value)
             if success:
-                return jsonify({"success": True, "message": "Memory saved successfully."}), 200
+                return jsonify({"success": True, "message": "기억이 저장되었습니다."}), 200
             else:
-                return jsonify({"success": False, "message": f"Memory save failed: {result}"}), 200
+                return jsonify({"success": False, "message": f"저장 실패: {result}"}), 200
 
         elif mode == "fetch":
             page_size = data.get('page_size', 5)
@@ -145,7 +142,7 @@ def handle_memory():
             else:
                 return jsonify({
                     "success": False,
-                    "message": "Failed to fetch memories.",
+                    "message": "기억 불러오기 실패.",
                     "detail": response.text
                 }), 200
 
@@ -154,17 +151,17 @@ def handle_memory():
             if any(keyword in memory_content for keyword in trigger_keywords):
                 success, result = send_to_notion(memory_content, title=title_value)
                 if success:
-                    return jsonify({"success": True, "message": "Auto memory saved."}), 200
+                    return jsonify({"success": True, "message": "자동 저장됨."}), 200
                 else:
-                    return jsonify({"success": False, "message": f"Auto memory save failed: {result}"}), 200
+                    return jsonify({"success": False, "message": f"자동 저장 실패: {result}"}), 200
             else:
-                return jsonify({"success": False, "message": "Does not meet auto-save conditions."}), 200
+                return jsonify({"success": False, "message": "자동 저장 조건 불충족."}), 200
 
-        return jsonify({"success": False, "message": "Unsupported mode."}), 200
+        return jsonify({"success": False, "message": "지원하지 않는 mode입니다."}), 200
 
     except Exception as e:
         print("[SERVER ERROR]", str(e))
-        return jsonify({"success": False, "message": f"Server error: {str(e)}"}), 200
+        return jsonify({"success": False, "message": f"서버 오류: {str(e)}"}), 200
 
 # 서버 실행
 if __name__ == "__main__":
