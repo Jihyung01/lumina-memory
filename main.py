@@ -41,13 +41,6 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
                     }
                 }]
             },
-            "Title": {
-                "title": [{
-                    "text": {
-                        "content": title
-                    }
-                }]
-            },
             "날짜": {
                 "date": {
                     "start": datetime.now().isoformat()
@@ -75,6 +68,24 @@ def handle_memory():
         data = request.json
         mode = data.get('mode', 'auto')
         print("[RECEIVED REQUEST]", data)
+
+        # mode가 save이고, properties가 명시되어 있으면 그대로 전달
+        if mode == "save" and "properties" in data:
+            save_data = {
+                "parent": {"database_id": NOTION_DATABASE_ID},
+                "properties": data["properties"]
+            }
+            headers = {
+                "Authorization": f"Bearer {NOTION_API_KEY}",
+                "Content-Type": "application/json",
+                "Notion-Version": "2022-06-28"
+            }
+            response = requests.post("https://api.notion.com/v1/pages", headers=headers, json=save_data)
+            print("[NOTION DIRECT RESPONSE]", response.status_code, response.text)
+            if response.status_code == 200:
+                return jsonify({"success": True, "message": "Memory saved successfully (direct)."}), 200
+            else:
+                return jsonify({"success": False, "message": f"Direct save failed: {response.text}"}), 200
 
         memory_content = ''
         try:
