@@ -74,7 +74,7 @@ def handle_memory():
 
         # 수동 저장
         if mode == "save":
-            success, result = send_to_notion(memory_content)
+            success, result = send_to_notion(memory_content, title="루미나 수동 저장")
             if success:
                 return jsonify({"success": True, "message": "✅ 기억이 저장되었습니다."})
             else:
