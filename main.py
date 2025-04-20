@@ -45,7 +45,6 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
             },
             "Title": {
                 "title": [{
-                    "type": "text",
                     "text": {
                         "content": title
                     }
