@@ -3,6 +3,10 @@ import requests
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)  # <--- 이 줄 추가
 
 load_dotenv()
 
