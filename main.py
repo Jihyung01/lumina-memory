@@ -13,60 +13,83 @@ load_dotenv()
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID") or "1d7ffbc06edc807280bdc6c14abfe288"
 
-@app.route('/v1/lumina-memory', methods=['POST'])
-def handle_memory():
-    try:
-        data = request.json
-        mode = data.get('mode')
-        print("📥 받은 요청:", data)
+# Notion으로 전송 함수
+def send_to_notion(memory_content, title="루미나 자동 저장"):
+    headers = {
+        "Authorization": f"Bearer {NOTION_API_KEY}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+    }
 
-        headers = {
-            "Authorization": f"Bearer {NOTION_API_KEY}",
-            "Content-Type": "application/json",
-            "Notion-Version": "2022-06-28"
-        }
-
-        if mode == "save":
-            # 기억 내용 추출
-            memory_content = data.get('properties', {}).get('기억', {}).get('title', [{}])[0].get('text', {}).get('content', '')
-            if not memory_content:
-                return jsonify({"error": "❌ 기억 내용이 비어 있음"}), 400
-
-            # 저장 구조
-            save_data = {
-                "parent": {"database_id": NOTION_DATABASE_ID},
-                "properties": {
-                    "기억": {
-                        "title": [{
-                            "text": {"content": memory_content}
-                        }]
-                    },
-                    "Title": {
-                        "rich_text": [{
-                            "text": {"content": "루미나 자동 저장"}
-                        }]
-                    },
-                    "날짜": {
-                        "date": {
-                            "start": datetime.now().isoformat()
-                        }
-                    }
+    save_data = {
+        "parent": {"database_id": NOTION_DATABASE_ID},
+        "properties": {
+            "기억": {
+                "title": [{
+                    "text": {"content": memory_content}
+                }]
+            },
+            "GPT가 저장할 핵심 내용": {
+                "rich_text": [{
+                    "text": {"content": memory_content}
+                }]
+            },
+            "Title": {
+                "rich_text": [{
+                    "text": {"content": title}
+                }]
+            },
+            "날짜": {
+                "date": {
+                    "start": datetime.now().isoformat()
                 }
             }
+        }
+    }
 
-            print("📤 Notion 전송 데이터:", save_data)
+    print("📤 Notion 전송 데이터:", save_data)
+    response = requests.post("https://api.notion.com/v1/pages", headers=headers, json=save_data)
+    print("📬 Notion 응답:", response.status_code, response.text)
 
-            response = requests.post("https://api.notion.com/v1/pages", headers=headers, json=save_data)
-            print("📬 Notion 응답:", response.status_code, response.text)
+    return response.status_code == 200, response.text
 
-            if response.status_code == 200:
+# 루미나 기억 API
+@app.route('/v1/lumina-memory', methods=['POST', 'GET', 'HEAD'])
+def handle_memory():
+    # GET/HEAD 요청에 안내 응답
+    if request.method != 'POST':
+        return jsonify({
+            "message": "🧠 이 엔드포인트는 루미나 기억 저장을 위한 POST 요청만 지원합니다.",
+            "tip": "GPTs 연동 또는 API 호출을 위해 JSON 데이터를 POST로 전송해 주세요."
+        }), 200
+
+    try:
+        data = request.json
+        mode = data.get('mode', 'auto')
+        print("📥 받은 요청:", data)
+
+        memory_content = data.get('properties', {}).get('기억', {}).get('title', [{}])[0].get('text', {}).get('content', '')
+
+        if not memory_content:
+            return jsonify({"error": "❌ 기억 내용이 비어 있음"}), 400
+
+        # 수동 저장
+        if mode == "save":
+            success, result = send_to_notion(memory_content)
+            if success:
                 return jsonify({"success": True, "message": "✅ 기억이 저장되었습니다."})
             else:
-                return jsonify({"success": False, "message": f"❌ 저장 실패: {response.text}"}), response.status_code
+                return jsonify({"success": False, "message": f"❌ 저장 실패: {result}"}), 500
 
+        # 최근 기억 불러오기
         elif mode == "fetch":
-            # 최근 기억 불러오기
             page_size = data.get('page_size', 5)
+            headers = {
+                "Authorization": f"Bearer {NOTION_API_KEY}",
+                "Content-Type": "application/json",
+                "Notion-Version": "2022-06-28"
+            }
+
             query_data = {
                 "filter": {},
                 "sorts": [{"property": "날짜", "direction": "descending"}],
@@ -82,7 +105,6 @@ def handle_memory():
             if response.status_code == 200:
                 results = response.json().get('results', [])
                 memories = []
-
                 for result in results:
                     title_data = result.get('properties', {}).get('기억', {}).get('title', [])
                     content = title_data[0].get('text', {}).get('content', '') if title_data else ''
@@ -91,6 +113,18 @@ def handle_memory():
                 return jsonify({"memories": memories})
             else:
                 return jsonify({"error": "기억을 불러오는데 실패했습니다.", "detail": response.text}), 500
+
+        # 자동 판단 저장
+        elif mode == "auto":
+            trigger_keywords = ["기억", "나를 만든다", "잊지마", "기억해", "내가 말한"]
+            if any(keyword in memory_content for keyword in trigger_keywords):
+                success, result = send_to_notion(memory_content, title="루미나 자동 판단 저장")
+                if success:
+                    return jsonify({"success": True, "message": "🧠 자동 판단으로 기억 저장됨"})
+                else:
+                    return jsonify({"success": False, "message": f"❌ 자동 저장 실패: {result}"}), 500
+            else:
+                return jsonify({"message": "ℹ️ 자동 저장 조건 미충족"}), 200
 
         return jsonify({"error": "❌ 지원하지 않는 mode입니다."}), 400
 
