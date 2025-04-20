@@ -56,51 +56,51 @@ def send_to_notion(memory_content, title="루미나 자동 저장"):
         }
     }
 
-    print("📤 Notion 전송 데이터:", save_data)
+    print("\ud83d\udce4 Notion \uc804\uc1a1 \ub370\uc774\ud130:", save_data)
     response = requests.post("https://api.notion.com/v1/pages", headers=headers, json=save_data)
-    print("📬 Notion 응답:", response.status_code, response.text)
+    print("\ud83d\udcec Notion \uc751\ub2f5:", response.status_code, response.text)
 
     return response.status_code == 200, response.text
 
-# 루미나 기억 API
+# \ub8e8\ubbf8\ub098 \uae30\uc5b5 API
 @app.route('/v1/lumina-memory', methods=['POST', 'GET', 'HEAD'])
 def handle_memory():
     if request.method != 'POST':
         return jsonify({
             "success": False,
-            "message": "🧠 이 엔드포인트는 루미나 기억 저장을 위한 POST 요청만 지원합니다."
+            "message": "\ud83e\udde0 \uc774 \uc5f0\ubc29\ud1a0\uc778\ud2b8\ub294 \ub8e8\ubbf8\ub098 \uae30\uc5b5 \uc800\uc7a5\uc744 \uc704\ud55c POST \uc694\uccad\ub9cc \uc9c0\uc6d0\ud569\ub2c8\ub2e4."
         }), 200
 
     try:
         data = request.json
         mode = data.get('mode', 'auto')
-        print("📥 받은 요청:", data)
+        print("\ud83d\udcc5 \ubc1b\uc740 \uc694\uccad:", data)
 
         memory_content = ''
         try:
-            title_data = data.get('properties', {}).get('기억', {}).get('title', [])
-            if isinstance(title_data, list) and title_data:
-                text_obj = title_data[0].get('text', {})
-                memory_content = text_obj.get('content', '')
+            if 'properties' in data:
+                title_data = data.get('properties', {}).get('기억', {}).get('title', [])
+                if isinstance(title_data, list) and title_data:
+                    memory_content = title_data[0].get('text', {}).get('content', '')
             if not memory_content and 'content' in data:
                 memory_content = data['content']
         except Exception as e:
-            print("🚨 memory_content 파싱 중 오류:", str(e))
+            print("\ud83d\udea8 memory_content \ud30c\uc2f1 \uc911 \uc624\ub958:", str(e))
             memory_content = ''
 
-        print("🔎 memory_content 추출 결과:", memory_content)
+        print("\ud83d\udd0e memory_content \ucd94\ucd9c \uacb0\uacfc:", memory_content)
 
         if not memory_content:
-            return jsonify({"success": False, "message": "❌ 기억 내용이 비어 있음"}), 200
+            return jsonify({"success": False, "message": "\u274c \uae30\uc5b5 \ub0b4\uc6a9\uc774 \ube44\uc5b4 \uc788\uc74c"}), 200
 
         title_value = data.get('title', '루미나 자동 저장')
 
         if mode == "save":
             success, result = send_to_notion(memory_content, title=title_value)
             if success:
-                return jsonify({"success": True, "message": "✅ 기억이 저장되었습니다."}), 200
+                return jsonify({"success": True, "message": "\u2705 \uae30\uc5b5\uc774 \uc800\uc7a5\ub418\uc5c8\uc2b5\ub2c8\ub2e4."}), 200
             else:
-                return jsonify({"success": False, "message": f"❌ 저장 실패: {result}"}), 200
+                return jsonify({"success": False, "message": f"\u274c \uc800\uc7a5 \uc2e4\ud328: {result}"}), 200
 
         elif mode == "fetch":
             page_size = data.get('page_size', 5)
@@ -143,18 +143,18 @@ def handle_memory():
             if any(keyword in memory_content for keyword in trigger_keywords):
                 success, result = send_to_notion(memory_content, title=title_value)
                 if success:
-                    return jsonify({"success": True, "message": "🧠 자동 판단으로 기억 저장됨"}), 200
+                    return jsonify({"success": True, "message": "\ud83e\udde0 \uc790\ub3d9 \ud310\ub2e8\uc73c\ub85c \uae30\uc5b5 \uc800\uc7a5\ub428"}), 200
                 else:
-                    return jsonify({"success": False, "message": f"❌ 자동 저장 실패: {result}"}), 200
+                    return jsonify({"success": False, "message": f"\u274c \uc790\ub3d9 \uc800\uc7a5 \uc2e4\ud328: {result}"}), 200
             else:
-                return jsonify({"success": False, "message": "ℹ️ 자동 저장 조건 미충족"}), 200
+                return jsonify({"success": False, "message": "\u2139\ufe0f \uc790\ub3d9 \uc800\uc7a5 \uc870\uac74 \ubbf8\ucda9\ucd0c"}), 200
 
-        return jsonify({"success": False, "message": "❌ 지원하지 않는 mode입니다."}), 200
+        return jsonify({"success": False, "message": "\u274c \uc9c0\uc6d0\ud558\uc9c0 \uc54a\ub294 mode\uc785\ub2c8\ub2e4."}), 200
 
     except Exception as e:
-        print("🔥 예외 발생:", str(e))
-        return jsonify({"success": False, "message": f"서버 에러 발생: {str(e)}"}), 200
+        print("\ud83d\udd25 \uc608\uc678 \ubc1c\uc0dd:", str(e))
+        return jsonify({"success": False, "message": f"\uc11c\ubc84 \uc5d0\ub7ec \ubc1c\uc0dd: {str(e)}"}), 200
 
-# 서버 실행
+# \uc11c\ubc84 \uc2e4\ud589
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
